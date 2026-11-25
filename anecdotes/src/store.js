@@ -1,4 +1,6 @@
 import { create } from "zustand";
+import anecdoteService from "./service/anecdotes";
+import { useShallow } from "zustand/shallow";
 
 const anecdotesAtStart = [
   "If it hurts, do it more often",
@@ -17,24 +19,59 @@ const asObject = (anecdote) => ({
   votes: 0,
 });
 
-const useAnecdoteStore = create((set) => ({
-  anecdotes: anecdotesAtStart.map(asObject),
+const useAnecdoteStore = create((set, get) => ({
+  anecdotes: [],
+  filter: "",
   actions: {
-    vote: (id) =>
+    vote: async (id) => {
+      const anecdote = get().anecdotes.find((a) => a.id === id);
+      const updatedAnecdote = await anecdoteService.vote(id, {
+        ...anecdote,
+        votes: anecdote.votes + 1,
+      });
       set((state) => ({
         anecdotes: state.anecdotes
-          .map((note) =>
-            note.id === id ? { ...note, votes: note.votes + 1 } : note,
-          )
+          .map((note) => (note.id === id ? updatedAnecdote : note))
           .toSorted((a, b) => b.votes - a.votes),
-      })),
-    add: (content) =>
+      }));
+    },
+    add: async (content) => {
+      const newAnecdotes = await anecdoteService.create(content);
       set((state) => ({
-        anecdotes: [...state.anecdotes, { content, id: getId(), votes: 0 }],
-      })),
+        anecdotes: [...state.anecdotes, newAnecdotes],
+      }));
+    },
+    filter: (input) => set(() => ({ filter: input.toLowerCase().trim() })),
+    initial: async () => {
+      const anecdotes = await anecdoteService.getAll();
+      set(() => ({ anecdotes }));
+    },
   },
 }));
 
-export const useAnecdotes = () => useAnecdoteStore((state) => state.anecdotes);
+const useNotificationStore = create((set, get) => ({
+  notification: null,
+  actions: {
+    showSuccess: (message) =>
+      set(() => ({ notification: { message, type: "success" } })),
+    showError: (message) =>
+      set(() => ({ notification: { message, type: "error" } })),
+    clearNotification: () => set({ notification: null }),
+  },
+}));
+
+export const useAnecdotes = () => {
+  const anecdotes = useAnecdoteStore((state) => state.anecdotes);
+  const filter = useAnecdoteStore((state) => state.filter);
+  const filterAnecdotes = anecdotes.filter((a) =>
+    a.content.toLowerCase().includes(filter),
+  );
+  return filterAnecdotes;
+};
 export const useAnecdotesControls = () =>
   useAnecdoteStore((state) => state.actions);
+
+export const useNotification = () =>
+  useNotificationStore((state) => state.notification);
+export const useNotificationControls = () =>
+  useNotificationStore((state) => state.actions);

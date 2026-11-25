@@ -1,8 +1,18 @@
-import { useAnecdotes, useAnecdotesControls } from "../store";
+import {
+  useAnecdotes,
+  useAnecdotesControls,
+  useNotificationControls,
+} from "../store";
 
 function AnecdoteList() {
   const anecdotes = useAnecdotes();
   const { vote } = useAnecdotesControls();
+  const { showSuccess } = useNotificationControls();
+
+  function handleClick(anecdote) {
+    vote(anecdote.id);
+    showSuccess(`You voted "${anecdote.content}"`);
+  }
 
   return (
     <>
@@ -11,7 +21,7 @@ function AnecdoteList() {
           <div>{anecdote.content}</div>
           <div>
             has {anecdote.votes}
-            <button onClick={() => vote(anecdote.id)}>vote</button>
+            <button onClick={() => handleClick(anecdote)}>vote</button>
           </div>
         </div>
       ))}
